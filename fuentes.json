@@ -1,0 +1,58 @@
+{
+  "La Rioja Capital": [
+    {
+      "platform": "rss",
+      "url": "https://news.google.com/rss/search?q=La+Rioja+actualidad+politica+sociedad&hl=es-419&gl=AR&ceid=AR:es-419",
+      "author": "Prensa La Rioja"
+    },
+    {
+      "platform": "youtube",
+      "channel_id": "UC_x5XG1OV2P6uZZ5FSM9Ttw",
+      "author": "Radio y Televisión Riojana (Canal 9)"
+    },
+    {
+      "platform": "youtube",
+      "channel_id": "UCpYmS2wS1e7N5wU8yv6Y4wQ",
+      "author": "Medios Provincia (Canal 13)"
+    },
+    {
+      "platform": "telegram",
+      "channel": "smn_alertas_ar",
+      "author": "Alerta Meteorológico NOA"
+    }
+  ],
+
+  "Chilecito y Famatina": [
+    {
+      "platform": "rss",
+      "url": "https://news.google.com/rss/search?q=Chilecito+Famatina+noticias&hl=es-419&gl=AR&ceid=AR:es-419",
+      "author": "Diario Chilecito"
+    },
+    {
+      "platform": "telegram",
+      "channel": "noticiaschilecito",
+      "author": "Comunidad Chilecito"
+    }
+  ],
+
+  "Los Llanos (Chamical, Chepes, Olta)": [
+    {
+      "platform": "rss",
+      "url": "https://news.google.com/rss/search?q=Chamical+Chepes+Olta+La+Rioja&hl=es-419&gl=AR&ceid=AR:es-419",
+      "author": "Crónica de Los Llanos"
+    }
+  ],
+
+  "Regional NOA y Nacional": [
+    {
+      "platform": "rss",
+      "url": "https://news.google.com/rss/search?q=Noroeste+Argentino+Catamarca+Cordoba+noticias&hl=es-419&gl=AR&ceid=AR:es-419",
+      "author": "Agencia Regional NOA"
+    },
+    {
+      "platform": "telegram",
+      "channel": "defensacivilsmn",
+      "author": "Defensa Civil y Emergencias"
+    }
+  ]
+}

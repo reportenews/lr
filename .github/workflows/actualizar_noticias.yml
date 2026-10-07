@@ -1,0 +1,40 @@
+name: Actualización Automática de Noticias con IA
+
+on:
+  schedule:
+    # Se ejecuta cada hora en punto (24 veces al día, 100% gratis)
+    - cron: '0 * * * *'
+  workflow_dispatch: # Permite ejecutarlo manualmente con un clic cuando quieras
+
+jobs:
+  construir-noticias:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Descargar repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar entorno Python
+        uses: setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Instalar dependencias
+        run: |
+          pip install google-genai
+
+      - name: Ejecutar Robot Periodístico con IA
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          python bot_noticias.py
+
+      - name: Guardar cambios y publicar en la web
+        run: |
+          git config --global user.name "Bot de Noticias IA"
+          git config --global user.email "bot@noticias.local"
+          git add noticias.json
+          git commit -m "Actualización automática de noticias [skip ci]" || exit 0
+          git push

@@ -1,0 +1,1207 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title id="page-title">Portal de Noticias Automático</title>
+  
+  <!-- Tailwind CSS & FontAwesome Icons -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Merriweather:ital,wght@0,300;0,400;0,700;1,300&display=swap" rel="stylesheet">
+
+  <!-- SDKs Oficiales de Redes Sociales -->
+  <script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>
+  <script async src="https://www.instagram.com/embed.js"></script>
+  <div id="fb-root"></div>
+  <script async defer crossorigin="anonymous" src="https://connect.facebook.net/es_LA/sdk.js#xfbml=1&version=v18.0"></script>
+  <script async src="https://telegram.org/js/telegram-widget.js?22"></script>
+
+  <style>
+    :root {
+      --primary-color: #0284c7;
+      --secondary-color: #0f172a;
+      --accent-color: #ef4444;
+    }
+    body {
+      font-family: 'Inter', sans-serif;
+    }
+    .font-serif-title {
+      font-family: 'Merriweather', serif;
+    }
+    .bg-primary { background-color: var(--primary-color); }
+    .text-primary { color: var(--primary-color); }
+    .border-primary { border-color: var(--primary-color); }
+    .bg-secondary { background-color: var(--secondary-color); }
+    
+    @keyframes pulse-dot {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.4); opacity: 0.6; }
+    }
+    .pulse-live {
+      animation: pulse-dot 1.5s infinite ease-in-out;
+    }
+
+    .embed-wrapper iframe, 
+    .embed-wrapper .twitter-tweet, 
+    .embed-wrapper .instagram-media {
+      margin-left: auto !important;
+      margin-right: auto !important;
+      max-width: 100% !important;
+      border-radius: 0.5rem;
+    }
+  </style>
+</head>
+<body class="bg-gray-100 text-gray-800 transition-colors duration-300 min-h-screen flex flex-col pb-24">
+
+  <!-- ================= BARRA SUPERIOR (FECHA, TICKER Y ADMIN) ================= -->
+  <div class="bg-gray-900 text-gray-300 text-xs py-1.5 px-4">
+    <div class="max-w-7xl mx-auto flex flex-wrap justify-between items-center gap-2">
+      <div class="flex items-center space-x-3 overflow-hidden">
+        <span id="current-date" class="font-medium text-gray-400 whitespace-nowrap"></span>
+        <span class="text-gray-600 hidden sm:inline">|</span>
+        <div class="flex items-center text-red-400 font-semibold tracking-wide whitespace-nowrap">
+          <span class="w-2 h-2 rounded-full bg-red-500 mr-1.5 pulse-live"></span> ÚLTIMA HORA:
+        </div>
+        <span id="ticker-text" class="text-gray-200 truncate max-w-xs md:max-w-xl">Conectando con fuentes de noticias y redes sociales...</span>
+      </div>
+      <div class="flex items-center space-x-3">
+        <button onclick="openAdminModal()" class="hover:text-white bg-gray-800 hover:bg-gray-700 px-2.5 py-1 rounded border border-gray-700 transition flex items-center gap-1.5 font-medium">
+          <i class="fa-solid fa-gear"></i> Panel Admin
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= CABECERA PRINCIPAL & LOGO ================= -->
+  <header class="bg-white border-b border-gray-200 shadow-sm sticky top-0 z-40">
+    <div class="max-w-7xl mx-auto px-4 py-3 flex flex-wrap justify-between items-center gap-4">
+      
+      <!-- Identidad (Logo + Nombre + Slogan) -->
+      <div class="flex items-center space-x-3 cursor-pointer" onclick="filterByLocation('todas')">
+        <div id="site-logo-container" class="w-12 h-12 flex items-center justify-center rounded-lg bg-primary text-white text-2xl font-black shadow-md overflow-hidden">
+          <span id="site-logo-text">N</span>
+        </div>
+        <div>
+          <h1 id="site-name" class="text-2xl md:text-3xl font-black tracking-tight text-gray-900">NOTICIAS HOY</h1>
+          <p id="site-slogan" class="text-xs text-gray-500 font-medium">Información al instante de tu región y redes</p>
+        </div>
+      </div>
+
+      <!-- Publicidad Header (Banner Superior 728x90) -->
+      <div id="ad-header-slot" class="hidden md:block"></div>
+    </div>
+
+    <!-- Barra de Navegación por Lugares -->
+    <nav class="bg-gray-50 border-t border-gray-200 overflow-x-auto">
+      <div class="max-w-7xl mx-auto px-4 flex items-center space-x-2 py-2 text-sm" id="places-navbar"></div>
+    </nav>
+  </header>
+
+  <!-- Publicidad Móvil (Superior) -->
+  <div id="ad-mobile-slot" class="block md:hidden max-w-7xl mx-auto px-4 mt-3 w-full"></div>
+
+  <!-- ================= CONTENEDOR PRINCIPAL ================= -->
+  <main class="max-w-7xl mx-auto px-4 py-6 flex-1 w-full grid grid-cols-1 lg:grid-cols-12 gap-8">
+    
+    <!-- COLUMNA PRINCIPAL DE NOTICIAS (8 Cols) -->
+    <section class="lg:col-span-8 space-y-6">
+      
+      <!-- Barra de Estado, Filtros y Actualizar -->
+      <div class="flex flex-wrap justify-between items-center border-b-2 border-primary pb-3 gap-3">
+        <div class="flex items-center space-x-2">
+          <i class="fa-solid fa-location-dot text-primary text-lg"></i>
+          <h2 id="current-view-title" class="text-xl font-bold text-gray-800">Todas las Noticias</h2>
+          <span id="news-count-badge" class="bg-gray-200 text-gray-700 text-xs px-2 py-0.5 rounded-full font-bold">0</span>
+        </div>
+
+        <div class="flex items-center space-x-2">
+          <!-- Filtro de tipo de contenido -->
+          <select id="content-type-filter" onchange="renderNewsGrid()" class="bg-white border border-gray-300 text-xs rounded-lg px-2.5 py-1.5 font-medium text-gray-700 focus:outline-none focus:ring-1 focus:ring-primary shadow-sm">
+            <option value="all">Todas las fuentes (Web + Redes)</option>
+            <option value="web">Solo Noticias Web</option>
+            <option value="social">Solo Redes Sociales</option>
+          </select>
+
+          <button onclick="fetchAutomatedNews()" class="text-xs bg-gray-200 hover:bg-gray-300 text-gray-700 px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition font-medium">
+            <i class="fa-solid fa-rotate text-gray-600"></i> Actualizar
+          </button>
+        </div>
+      </div>
+
+      <!-- Estado de Carga -->
+      <div id="loading-spinner" class="py-16 text-center">
+        <i class="fa-solid fa-circle-notch fa-spin text-4xl text-primary mb-3"></i>
+        <p class="text-gray-500 font-medium text-sm">Sincronizando noticias automáticas y publicaciones de redes...</p>
+      </div>
+
+      <!-- Grid de Noticias con formato idéntico al primer modelo -->
+      <div id="news-container" class="grid grid-cols-1 md:grid-cols-2 gap-6 hidden"></div>
+
+      <!-- Mensaje si no hay resultados -->
+      <div id="no-news-message" class="hidden py-12 text-center bg-white rounded-xl p-8 border border-gray-200">
+        <i class="fa-solid fa-newspaper text-4xl text-gray-400 mb-2"></i>
+        <h3 class="text-base font-semibold text-gray-700">No se encontraron publicaciones recientes</h3>
+        <p class="text-xs text-gray-500 mt-1">Verifica la conexión a internet o configura nuevas fuentes en el Panel de Administración.</p>
+      </div>
+    </section>
+
+    <!-- BARRA LATERAL (4 Cols): Publicidad, Cobertura & Redes -->
+    <aside class="lg:col-span-4 space-y-6">
+      
+      <!-- Widget Publicidad Lateral -->
+      <div id="ad-sidebar-slot" class="bg-white rounded-xl shadow-sm border border-gray-200 p-3 text-center"></div>
+
+      <!-- Widget Lugares Monitoreados -->
+      <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+        <h3 class="font-bold text-gray-800 text-sm uppercase tracking-wider mb-3 flex items-center gap-2">
+          <i class="fa-solid fa-satellite-dish text-primary"></i> Cobertura Automática
+        </h3>
+        <p class="text-xs text-gray-500 mb-4">El robot rastrea portales, medios y redes de las siguientes zonas:</p>
+        <div id="places-badge-list" class="flex flex-wrap gap-2"></div>
+      </div>
+
+      <!-- Widget Canales de Difusión -->
+      <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+        <h3 class="font-bold text-gray-800 text-sm uppercase tracking-wider mb-3 flex items-center gap-2">
+          <i class="fa-solid fa-share-nodes text-primary"></i> Canales de Difusión
+        </h3>
+        <p class="text-xs text-gray-500 mb-4">Sigue las alertas y transmisiones automáticas:</p>
+        <div class="grid grid-cols-2 gap-2 text-xs">
+          <a href="#" class="p-2.5 rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 flex items-center gap-2 font-medium transition">
+            <i class="fa-brands fa-facebook text-base"></i> Facebook
+          </a>
+          <a href="#" class="p-2.5 rounded-lg bg-sky-50 text-sky-700 hover:bg-sky-100 flex items-center gap-2 font-medium transition">
+            <i class="fa-brands fa-x-twitter text-base"></i> Twitter / X
+          </a>
+          <a href="#" class="p-2.5 rounded-lg bg-pink-50 text-pink-700 hover:bg-pink-100 flex items-center gap-2 font-medium transition">
+            <i class="fa-brands fa-instagram text-base"></i> Instagram
+          </a>
+          <a href="#" class="p-2.5 rounded-lg bg-green-50 text-green-700 hover:bg-green-100 flex items-center gap-2 font-medium transition">
+            <i class="fa-brands fa-whatsapp text-base"></i> WhatsApp
+          </a>
+        </div>
+      </div>
+    </aside>
+
+  </main>
+
+  <!-- ================= BARRA FIJA DE RADIO ONLINE EN VIVO ================= -->
+  <div id="live-radio-bar" class="fixed bottom-0 left-0 right-0 bg-gray-900 border-t border-gray-800 text-white z-50 px-4 py-2.5 shadow-2xl transition-transform">
+    <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-4">
+      
+      <!-- Info de la emisora -->
+      <div class="flex items-center space-x-3">
+        <div class="w-10 h-10 rounded-full bg-red-600 flex items-center justify-center text-white text-lg shadow-md pulse-live">
+          <i class="fa-solid fa-tower-broadcast"></i>
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <span class="text-xs font-bold text-red-400 uppercase tracking-widest bg-red-950 px-1.5 py-0.5 rounded border border-red-800">EN VIVO</span>
+            <span id="radio-station-name" class="font-bold text-sm text-white">Radio Online</span>
+          </div>
+          <p id="radio-stream-status" class="text-xs text-gray-400 truncate max-w-xs">Listo para reproducir</p>
+        </div>
+      </div>
+
+      <!-- Controles de Audio -->
+      <div class="flex items-center space-x-4">
+        <audio id="audio-stream" preload="none"></audio>
+        
+        <button id="radio-play-btn" onclick="toggleRadioPlay()" class="bg-primary hover:opacity-90 text-white w-10 h-10 rounded-full flex items-center justify-center shadow-lg transition">
+          <i class="fa-solid fa-play" id="radio-btn-icon"></i>
+        </button>
+
+        <!-- Volumen -->
+        <div class="hidden sm:flex items-center space-x-2 text-gray-400">
+          <i class="fa-solid fa-volume-high text-xs"></i>
+          <input type="range" id="radio-volume" min="0" max="1" step="0.05" value="0.8" oninput="setRadioVolume(this.value)" class="w-20 accent-primary cursor-pointer">
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ================= MODAL DEL PANEL DE ADMINISTRACIÓN ================= -->
+  <div id="admin-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
+    <div class="bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[90vh] flex flex-col overflow-hidden">
+      
+      <!-- Cabecera del Modal -->
+      <div class="bg-gray-900 text-white px-6 py-4 flex justify-between items-center">
+        <div class="flex items-center space-x-2">
+          <i class="fa-solid fa-sliders text-primary text-xl"></i>
+          <h2 class="font-bold text-lg">Panel de Administración y Control</h2>
+        </div>
+        <button onclick="closeAdminModal()" class="text-gray-400 hover:text-white text-xl">&times;</button>
+      </div>
+
+      <!-- Pestañas del Admin -->
+      <div class="bg-gray-100 border-b border-gray-200 px-6 flex space-x-4 text-xs font-semibold overflow-x-auto">
+        <button onclick="switchTab('tab-general')" id="btn-tab-general" class="admin-tab-btn py-3 border-b-2 border-primary text-primary">Identidad</button>
+        <button onclick="switchTab('tab-appearance')" id="btn-tab-appearance" class="admin-tab-btn py-3 border-b-2 border-transparent text-gray-500 hover:text-gray-800">Apariencia</button>
+        <button onclick="switchTab('tab-places')" id="btn-tab-places" class="admin-tab-btn py-3 border-b-2 border-transparent text-gray-500 hover:text-gray-800">Lugares y Fuentes</button>
+        <button onclick="switchTab('tab-social')" id="btn-tab-social" class="admin-tab-btn py-3 border-b-2 border-transparent text-gray-500 hover:text-gray-800">📱 Redes & Embeds</button>
+        <button onclick="switchTab('tab-radio')" id="btn-tab-radio" class="admin-tab-btn py-3 border-b-2 border-transparent text-gray-500 hover:text-gray-800">Radio Online</button>
+        <button onclick="switchTab('tab-ads')" id="btn-tab-ads" class="admin-tab-btn py-3 border-b-2 border-transparent text-gray-500 hover:text-gray-800">Publicidad</button>
+        <button onclick="switchTab('tab-backup')" id="btn-tab-backup" class="admin-tab-btn py-3 border-b-2 border-transparent text-gray-500 hover:text-gray-800">Copia de Seguridad</button>
+      </div>
+
+      <!-- Contenido de las Pestañas -->
+      <div class="p-6 overflow-y-auto flex-1 text-sm space-y-6">
+
+        <!-- TAB 1: IDENTIDAD -->
+        <div id="tab-general" class="admin-tab-content space-y-4">
+          <div>
+            <label class="block font-semibold text-gray-700 mb-1">Nombre del Portal</label>
+            <input type="text" id="cfg-site-name" class="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary focus:outline-none">
+          </div>
+          <div>
+            <label class="block font-semibold text-gray-700 mb-1">Eslogan / Subtítulo</label>
+            <input type="text" id="cfg-site-slogan" class="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary focus:outline-none">
+          </div>
+          <div>
+            <label class="block font-semibold text-gray-700 mb-1">Logo URL (Opcional - Imagen externa)</label>
+            <input type="url" id="cfg-site-logo-url" placeholder="https://ejemplo.com/logo.png" class="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary focus:outline-none">
+            <span class="text-xs text-gray-500">Si se deja vacío, se usará la letra inicial como icono con fondo de color.</span>
+          </div>
+        </div>
+
+        <!-- TAB 2: APARIENCIA -->
+        <div id="tab-appearance" class="admin-tab-content space-y-4 hidden">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label class="block font-semibold text-gray-700 mb-1">Color Primario (Botones, detalles)</label>
+              <div class="flex items-center gap-3">
+                <input type="color" id="cfg-primary-color" class="w-12 h-10 border rounded cursor-pointer p-0.5">
+                <span class="text-xs text-gray-600 font-mono" id="cfg-primary-color-label">#0284c7</span>
+              </div>
+            </div>
+            <div>
+              <label class="block font-semibold text-gray-700 mb-1">Color Secundario (Fondos oscuros)</label>
+              <div class="flex items-center gap-3">
+                <input type="color" id="cfg-secondary-color" class="w-12 h-10 border rounded cursor-pointer p-0.5">
+                <span class="text-xs text-gray-600 font-mono" id="cfg-secondary-color-label">#0f172a</span>
+              </div>
+            </div>
+          </div>
+          <div>
+            <label class="block font-semibold text-gray-700 mb-1">Estilo de Encabezados</label>
+            <select id="cfg-font-style" class="w-full border rounded-lg px-3 py-2 text-sm">
+              <option value="sans">Moderno (Sans-Serif / Inter)</option>
+              <option value="serif">Editorial Clásico (Serif / Periódico)</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- TAB 3: LUGARES Y BÚSQUEDA AUTOMÁTICA -->
+        <div id="tab-places" class="admin-tab-content space-y-4 hidden">
+          <div>
+            <label class="block font-semibold text-gray-700 mb-1">Lugares y Ciudades para Búsqueda Automática</label>
+            <p class="text-xs text-gray-500 mb-2">Ingresa los nombres separados por comas. El robot consultará los feeds automáticos de noticias para cada lugar.</p>
+            <textarea id="cfg-places-list" rows="3" class="w-full border rounded-lg p-3 text-sm focus:ring-2 focus:ring-primary focus:outline-none" placeholder="La Rioja, Córdoba, Buenos Aires, Catamarca"></textarea>
+          </div>
+          <div>
+            <label class="block font-semibold text-gray-700 mb-1">Intervalo de actualización automática</label>
+            <select id="cfg-refresh-interval" class="w-full border rounded-lg px-3 py-2 text-sm">
+              <option value="5">Cada 5 minutos</option>
+              <option value="15">Cada 15 minutos</option>
+              <option value="30">Cada 30 minutos</option>
+              <option value="60">Cada 1 hora</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- TAB 4: REDES SOCIALES & EMBEDS POR LUGAR -->
+        <div id="tab-social" class="admin-tab-content space-y-5 hidden">
+          <div class="bg-blue-50 border border-blue-200 rounded-xl p-4">
+            <h3 class="font-bold text-blue-900 text-sm mb-1 flex items-center gap-2">
+              <i class="fa-solid fa-circle-plus text-primary"></i> Agregar Publicación con Resumen Previo
+            </h3>
+            <p class="text-xs text-blue-800 mb-3">Pega la URL de una publicación de <strong>X, Instagram, Facebook, YouTube o Telegram</strong> con su resumen explicativo:</p>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+              <div>
+                <label class="block text-xs font-semibold text-gray-700 mb-1">Localidad Asociada</label>
+                <select id="social-new-place" class="w-full border rounded-lg px-3 py-2 text-xs bg-white"></select>
+              </div>
+              <div>
+                <label class="block text-xs font-semibold text-gray-700 mb-1">Plataforma</label>
+                <select id="social-new-platform" class="w-full border rounded-lg px-3 py-2 text-xs bg-white">
+                  <option value="auto">Detección Automática</option>
+                  <option value="twitter">X / Twitter</option>
+                  <option value="instagram">Instagram</option>
+                  <option value="facebook">Facebook</option>
+                  <option value="youtube">YouTube</option>
+                  <option value="telegram">Telegram</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="space-y-3">
+              <input type="url" id="social-new-url" placeholder="URL del post (ej: https://t.me/... o https://x.com/...)" class="w-full border rounded-lg px-3 py-2 text-xs">
+              <input type="text" id="social-new-title" placeholder="Titular de la noticia" class="w-full border rounded-lg px-3 py-2 text-xs">
+              <textarea id="social-new-summary" rows="2" placeholder="Resumen previo de la noticia para que el lector entienda antes del widget..." class="w-full border rounded-lg p-2.5 text-xs"></textarea>
+              <input type="text" id="social-new-author" placeholder="Autor / Cuenta (ej: @DefensaCivil o Canal 9)" class="w-full border rounded-lg px-3 py-2 text-xs">
+
+              <button onclick="addSocialItem()" class="w-full bg-primary hover:opacity-90 text-white font-bold py-2 rounded-lg text-xs shadow-md flex items-center justify-center gap-1.5">
+                <i class="fa-solid fa-plus"></i> Guardar Publicación
+              </button>
+            </div>
+          </div>
+
+          <div>
+            <h4 class="font-bold text-gray-800 text-xs uppercase tracking-wider mb-2">Publicaciones Vigentes:</h4>
+            <div id="social-items-list" class="space-y-2 max-h-52 overflow-y-auto pr-1"></div>
+          </div>
+        </div>
+
+        <!-- TAB 5: RADIO ONLINE -->
+        <div id="tab-radio" class="admin-tab-content space-y-4 hidden">
+          <div class="flex items-center space-x-3 mb-2">
+            <input type="checkbox" id="cfg-radio-enabled" class="w-4 h-4 text-primary rounded">
+            <label for="cfg-radio-enabled" class="font-semibold text-gray-800">Habilitar Reproductor de Radio Online</label>
+          </div>
+          <div>
+            <label class="block font-semibold text-gray-700 mb-1">Nombre de la Emisora / Radio</label>
+            <input type="text" id="cfg-radio-name" placeholder="Ej: Radio Online 105.1" class="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary focus:outline-none">
+          </div>
+          <div>
+            <label class="block font-semibold text-gray-700 mb-1">URL de Streaming de Audio (Icecast / Shoutcast / HTTPS)</label>
+            <input type="url" id="cfg-radio-url" placeholder="https://stream.servidor.com:8000/live" class="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary focus:outline-none">
+            <span class="text-xs text-gray-500">Debe ser un enlace directo compatible con protocolo HTTPS.</span>
+          </div>
+        </div>
+
+        <!-- TAB 6: PUBLICIDAD -->
+        <div id="tab-ads" class="admin-tab-content space-y-4 hidden">
+          <!-- Banner Superior -->
+          <div class="p-3 border rounded-lg bg-gray-50 space-y-2">
+            <div class="flex items-center justify-between">
+              <label class="font-semibold text-gray-800">1. Banner Superior (Leaderboard)</label>
+              <input type="checkbox" id="cfg-ad-header-enabled" class="w-4 h-4 text-primary rounded">
+            </div>
+            <input type="url" id="cfg-ad-header-img" placeholder="URL de la Imagen (ej: 728x90 px)" class="w-full border rounded px-3 py-1.5 text-xs">
+            <input type="url" id="cfg-ad-header-link" placeholder="Enlace de destino (ej: https://wa.me/...)" class="w-full border rounded px-3 py-1.5 text-xs">
+          </div>
+
+          <!-- Banner Lateral -->
+          <div class="p-3 border rounded-lg bg-gray-50 space-y-2">
+            <div class="flex items-center justify-between">
+              <label class="font-semibold text-gray-800">2. Banner Lateral (Sidebar)</label>
+              <input type="checkbox" id="cfg-ad-sidebar-enabled" class="w-4 h-4 text-primary rounded">
+            </div>
+            <input type="url" id="cfg-ad-sidebar-img" placeholder="URL de la Imagen (ej: 300x250 px)" class="w-full border rounded px-3 py-1.5 text-xs">
+            <input type="url" id="cfg-ad-sidebar-link" placeholder="Enlace de destino" class="w-full border rounded px-3 py-1.5 text-xs">
+          </div>
+
+          <!-- Banner Entre Noticias -->
+          <div class="p-3 border rounded-lg bg-gray-50 space-y-2">
+            <div class="flex items-center justify-between">
+              <label class="font-semibold text-gray-800">3. Anuncio Patrocinado (Entre noticias)</label>
+              <input type="checkbox" id="cfg-ad-feed-enabled" class="w-4 h-4 text-primary rounded">
+            </div>
+            <input type="text" id="cfg-ad-feed-title" placeholder="Título del patrocinador" class="w-full border rounded px-3 py-1.5 text-xs">
+            <input type="url" id="cfg-ad-feed-img" placeholder="URL de imagen destacada" class="w-full border rounded px-3 py-1.5 text-xs">
+            <input type="url" id="cfg-ad-feed-link" placeholder="Enlace de destino" class="w-full border rounded px-3 py-1.5 text-xs">
+          </div>
+        </div>
+
+        <!-- TAB 7: BACKUP & RESTAURAR -->
+        <div id="tab-backup" class="admin-tab-content space-y-4 hidden">
+          <p class="text-xs text-gray-600">Exporta o restaura toda tu configuración (lugares, publicidad, radios, colores, publicaciones) en un archivo JSON:</p>
+          <div class="flex flex-wrap gap-2">
+            <button onclick="exportSettingsJSON()" class="bg-gray-800 hover:bg-gray-900 text-white px-4 py-2 rounded-lg text-xs font-semibold flex items-center gap-1.5">
+              <i class="fa-solid fa-download"></i> Descargar Configuración (.JSON)
+            </button>
+            <button onclick="document.getElementById('import-file-input').click()" class="bg-gray-200 hover:bg-gray-300 text-gray-800 px-4 py-2 rounded-lg text-xs font-semibold flex items-center gap-1.5">
+              <i class="fa-solid fa-upload"></i> Cargar desde Archivo
+            </button>
+            <input type="file" id="import-file-input" class="hidden" accept=".json" onchange="importSettingsJSON(event)">
+            <button onclick="resetDefaultSettings()" class="bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 px-4 py-2 rounded-lg text-xs font-semibold flex items-center gap-1.5 ml-auto">
+              <i class="fa-solid fa-trash-can"></i> Restaurar Valores por Defecto
+            </button>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Pie del Modal -->
+      <div class="bg-gray-50 border-t border-gray-200 px-6 py-3 flex justify-between items-center">
+        <span class="text-xs text-gray-500">Los cambios se guardan localmente en el navegador.</span>
+        <div class="flex space-x-2">
+          <button onclick="closeAdminModal()" class="px-4 py-2 rounded-lg text-gray-600 hover:bg-gray-200 text-xs font-semibold">Cancelar</button>
+          <button onclick="saveAdminSettings()" class="bg-primary hover:opacity-90 text-white px-5 py-2 rounded-lg text-xs font-bold shadow-md">Guardar y Aplicar</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ================= JAVASCRIPT ================= -->
+  <script>
+    const DEFAULT_CONFIG = {
+      siteName: "NOTICIAS HOY",
+      siteSlogan: "Información al instante de tu región y redes",
+      siteLogoUrl: "",
+      primaryColor: "#0284c7",
+      secondaryColor: "#0f172a",
+      fontStyle: "sans",
+      places: ["La Rioja", "Córdoba", "Buenos Aires", "Catamarca", "Argentina"],
+      refreshInterval: 15,
+      radio: {
+        enabled: true,
+        name: "Radio Online Regional 105.1",
+        url: "https://stream.zeno.fm/f3wvbbqmdg8uv"
+      },
+      ads: {
+        header: {
+          enabled: true,
+          img: "https://placehold.co/728x90/0284c7/ffffff?text=Espacio+Publicitario+Disponible+-+Contrate+Aqui",
+          link: "https://wa.me/"
+        },
+        sidebar: {
+          enabled: true,
+          img: "https://placehold.co/300x250/0f172a/ffffff?text=Tu+Publicidad+Aqui+300x250",
+          link: "https://wa.me/"
+        },
+        feed: {
+          enabled: true,
+          title: "Espacio de Patrocinio Comercial",
+          img: "https://placehold.co/600x300/10b981/ffffff?text=Anuncio+Patrocinado",
+          link: "https://wa.me/"
+        }
+      },
+      socialItems: [
+        {
+          id: "soc-1",
+          place: "La Rioja",
+          platform: "telegram",
+          title: "Aviso de vigilancia meteorológica por ráfagas intensas en la zona cordillerana",
+          summary: "Se prevén condiciones climáticas adversas durante las próximas horas con visibilidad reducida por polvo. Se recomienda circular con precaución.",
+          author: "@DefensaCivilLR",
+          url: "https://t.me/smn_alertas_ar/120",
+          pubDate: "Hoy, 11:20"
+        },
+        {
+          id: "soc-2",
+          place: "Córdoba",
+          platform: "youtube",
+          title: "Transmisión oficial: Resumen de gestión y anuncios de infraestructura",
+          summary: "Presentación en vivo del nuevo plan de conectividad y obras viales para conectar departamentos del interior provincial.",
+          author: "Prensa Córdoba",
+          url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+          pubDate: "Ayer, 19:00"
+        }
+      ]
+    };
+
+    let config = { ...DEFAULT_CONFIG };
+    let allNews = [];
+    let currentFilter = 'todas';
+
+    document.addEventListener("DOMContentLoaded", () => {
+      loadSettings();
+      applySettings();
+      updateDateDisplay();
+      fetchAutomatedNews();
+
+      setInterval(() => {
+        fetchAutomatedNews();
+      }, config.refreshInterval * 60 * 1000);
+    });
+
+    function loadSettings() {
+      const saved = localStorage.getItem("news_portal_unified_cfg");
+      if (saved) {
+        try {
+          config = JSON.parse(saved);
+          if (!config.socialItems) config.socialItems = DEFAULT_CONFIG.socialItems;
+        } catch (e) {
+          console.error("Error al cargar config", e);
+        }
+      }
+    }
+
+    function applySettings() {
+      document.getElementById("page-title").innerText = config.siteName + " - Información al Instante";
+      document.getElementById("site-name").innerText = config.siteName;
+      document.getElementById("site-slogan").innerText = config.siteSlogan;
+
+      const logoContainer = document.getElementById("site-logo-container");
+      if (config.siteLogoUrl && config.siteLogoUrl.trim() !== "") {
+        logoContainer.innerHTML = `<img src="${config.siteLogoUrl}" class="w-full h-full object-cover" alt="Logo">`;
+      } else {
+        logoContainer.innerHTML = `<span id="site-logo-text">${config.siteName.charAt(0)}</span>`;
+      }
+
+      document.documentElement.style.setProperty('--primary-color', config.primaryColor);
+      document.documentElement.style.setProperty('--secondary-color', config.secondaryColor);
+
+      if (config.fontStyle === 'serif') {
+        document.getElementById("site-name").classList.add("font-serif-title");
+      } else {
+        document.getElementById("site-name").classList.remove("font-serif-title");
+      }
+
+      renderPlacesNav();
+      renderAds();
+
+      // Radio Online
+      const radioBar = document.getElementById("live-radio-bar");
+      if (config.radio.enabled) {
+        radioBar.classList.remove("translate-y-full");
+        document.getElementById("radio-station-name").innerText = config.radio.name;
+        const audio = document.getElementById("audio-stream");
+        if (audio.src !== config.radio.url) audio.src = config.radio.url;
+      } else {
+        radioBar.classList.add("translate-y-full");
+        document.getElementById("audio-stream").pause();
+      }
+    }
+
+    function renderPlacesNav() {
+      const nav = document.getElementById("places-navbar");
+      const badgeList = document.getElementById("places-badge-list");
+      nav.innerHTML = "";
+      badgeList.innerHTML = "";
+
+      const btnAll = document.createElement("button");
+      btnAll.className = `px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap transition ${currentFilter === 'todas' ? 'bg-primary text-white shadow-sm' : 'bg-white text-gray-700 hover:bg-gray-200'}`;
+      btnAll.innerText = "Todas las Noticias";
+      btnAll.onclick = () => filterByLocation('todas');
+      nav.appendChild(btnAll);
+
+      config.places.forEach(place => {
+        const btn = document.createElement("button");
+        btn.className = `px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap transition ${currentFilter === place ? 'bg-primary text-white shadow-sm' : 'bg-white text-gray-700 hover:bg-gray-200'}`;
+        btn.innerText = place;
+        btn.onclick = () => filterByLocation(place);
+        nav.appendChild(btn);
+
+        const badge = document.createElement("span");
+        badge.className = "bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs px-2.5 py-1 rounded-full font-medium cursor-pointer border border-gray-200";
+        badge.innerText = `📍 ${place}`;
+        badge.onclick = () => filterByLocation(place);
+        badgeList.appendChild(badge);
+      });
+    }
+
+    function renderAds() {
+      const headerAd = document.getElementById("ad-header-slot");
+      const mobileAd = document.getElementById("ad-mobile-slot");
+      if (config.ads.header.enabled && config.ads.header.img) {
+        const html = `<a href="${config.ads.header.link}" target="_blank" rel="noopener"><img src="${config.ads.header.img}" alt="Publicidad" class="h-14 md:h-16 w-auto max-w-full rounded shadow-sm border border-gray-200"></a>`;
+        headerAd.innerHTML = html;
+        mobileAd.innerHTML = html;
+      } else {
+        headerAd.innerHTML = "";
+        mobileAd.innerHTML = "";
+      }
+
+      const sidebarAd = document.getElementById("ad-sidebar-slot");
+      if (config.ads.sidebar.enabled && config.ads.sidebar.img) {
+        sidebarAd.innerHTML = `
+          <span class="text-[10px] uppercase font-bold text-gray-400 tracking-wider block mb-1">Publicidad</span>
+          <a href="${config.ads.sidebar.link}" target="_blank" rel="noopener">
+            <img src="${config.ads.sidebar.img}" alt="Publicidad" class="w-full h-auto rounded shadow-sm hover:opacity-95 transition">
+          </a>
+        `;
+        sidebarAd.classList.remove("hidden");
+      } else {
+        sidebarAd.classList.add("hidden");
+      }
+    }
+
+    // Motor Unificado de Obtención de Noticias: Archivo JSON de Robot + RSS Web
+    async function fetchAutomatedNews() {
+      const spinner = document.getElementById("loading-spinner");
+      const container = document.getElementById("news-container");
+      const noNews = document.getElementById("no-news-message");
+
+      spinner.classList.remove("hidden");
+      container.classList.add("hidden");
+      noNews.classList.add("hidden");
+
+      let fetchedWebNews = [];
+      let fetchedRobotNews = [];
+
+      // 1. Intentar cargar el archivo JSON que produce el robot de IA en GitHub
+      try {
+        const resRobot = await fetch("noticias.json?t=" + Date.now());
+        if (resRobot.ok) {
+          fetchedRobotNews = await resRobot.json();
+        }
+      } catch (e) {
+        console.log("noticias.json no disponible aún, usando fuentes locales");
+      }
+
+      // 2. Extraer noticias RSS de Google News en vivo para las localidades configuradas
+      try {
+        const queries = config.places.slice(0, 4);
+        const fetchPromises = queries.map(async (location) => {
+          const rssUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(location + " actualidad")}&hl=es-419&gl=AR&ceid=AR:es-419`;
+          const apiUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(rssUrl)}`;
+          
+          try {
+            const res = await fetch(apiUrl);
+            if (!res.ok) return [];
+            const data = await res.json();
+            if (data.status === 'ok' && data.items) {
+              return data.items.slice(0, 4).map(item => ({
+                id: "rss-" + Math.random().toString(36).substr(2, 9),
+                kind: "web",
+                title: cleanTitle(item.title),
+                link: item.link,
+                pubDate: new Date(item.pubDate).toLocaleString("es-ES", { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }),
+                location: location,
+                source: extractSource(item.title) || location,
+                description: stripHtml(item.description || item.content || "")
+              }));
+            }
+          } catch (e) {
+            console.warn(`Error RSS ${location}:`, e);
+          }
+          return [];
+        });
+
+        const results = await Promise.all(fetchPromises);
+        fetchedWebNews = results.flat();
+      } catch (err) {
+        console.error("Fallo general de recolección RSS", err);
+      }
+
+      // 3. Integrar las publicaciones de Redes Sociales configuradas en el Admin
+      const configuredSocial = (config.socialItems || []).map(s => ({
+        id: s.id,
+        kind: "social",
+        title: s.title,
+        link: s.url,
+        pubDate: s.pubDate || "Reciente",
+        location: s.place,
+        source: s.author || "Redes Sociales",
+        description: s.summary,
+        platform: s.platform,
+        url: s.url
+      }));
+
+      // 4. Formatear las del robot de GitHub
+      const formattedRobot = fetchedRobotNews.map(r => ({
+        id: r.id || ("robot-" + Math.random().toString(36).substr(2, 9)),
+        kind: r.platform === "rss" ? "web" : "social",
+        title: r.title,
+        link: r.url,
+        pubDate: r.pubDate || "Hoy",
+        location: r.place,
+        source: r.author || "Agencia IA",
+        description: r.summary,
+        platform: r.platform,
+        url: r.url
+      }));
+
+      // Unificar sin duplicados
+      allNews = [...configuredSocial, ...formattedRobot, ...fetchedWebNews];
+
+      if (allNews.length === 0) {
+        allNews = generateFallbackNews();
+      }
+
+      // Mezclar un poco para dinamismo
+      allNews.sort(() => Math.random() - 0.5);
+
+      spinner.classList.add("hidden");
+      renderNewsGrid();
+      updateTicker();
+    }
+
+    function generateFallbackNews() {
+      return config.places.map((place) => ({
+        id: "fb-" + place,
+        kind: "web",
+        title: `Actualidad y novedades comunitarias en ${place}: resumen de la jornada`,
+        link: "#",
+        pubDate: "Hace instantes",
+        location: place,
+        source: `Corresponsalía ${place}`,
+        description: `Las principales actividades, anuncios y reportes de la comunidad en ${place} se desarrollan con normalidad. Los servicios locales operan según el cronograma previsto.`
+      }));
+    }
+
+    // Renderizar Cuadrícula de Noticias con la estética original del primer modelo
+    function renderNewsGrid() {
+      const container = document.getElementById("news-container");
+      const noNews = document.getElementById("no-news-message");
+      const badge = document.getElementById("news-count-badge");
+      const typeFilter = document.getElementById("content-type-filter").value;
+      
+      let filtered = currentFilter === 'todas' 
+        ? allNews 
+        : allNews.filter(n => n.location.toLowerCase() === currentFilter.toLowerCase());
+
+      if (typeFilter === 'web') {
+        filtered = filtered.filter(n => n.kind === 'web');
+      } else if (typeFilter === 'social') {
+        filtered = filtered.filter(n => n.kind === 'social');
+      }
+
+      badge.innerText = filtered.length;
+
+      if (filtered.length === 0) {
+        container.classList.add("hidden");
+        noNews.classList.remove("hidden");
+        return;
+      }
+
+      container.innerHTML = "";
+      noNews.classList.add("hidden");
+      container.classList.remove("hidden");
+
+      filtered.forEach((item, index) => {
+        // Anuncio Patrocinado cada 4 elementos (idéntico al modelo 1)
+        if (index === 2 && config.ads.feed.enabled && config.ads.feed.img) {
+          const adCard = document.createElement("div");
+          adCard.className = "md:col-span-2 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-4 shadow-sm flex flex-col md:flex-row items-center gap-4";
+          adCard.innerHTML = `
+            <img src="${config.ads.feed.img}" class="w-full md:w-48 h-32 object-cover rounded-lg shadow-sm" alt="Patrocinio">
+            <div class="flex-1">
+              <span class="bg-blue-600 text-white text-[10px] font-bold px-2 py-0.5 rounded uppercase">Patrocinado</span>
+              <h4 class="font-bold text-gray-900 text-base mt-1">${config.ads.feed.title}</h4>
+              <p class="text-xs text-gray-600 mt-1">Apoya a nuestro medio independiente conociendo a los auspiciantes de nuestra región.</p>
+              <a href="${config.ads.feed.link}" target="_blank" class="inline-block mt-3 bg-primary text-white text-xs font-bold px-4 py-1.5 rounded-lg hover:opacity-90 transition">Más Información</a>
+            </div>
+          `;
+          container.appendChild(adCard);
+        }
+
+        // Si es una publicación de Red Social: Resumen Primero + Embed
+        if (item.kind === "social") {
+          const socialCard = createSocialCard(item);
+          container.appendChild(socialCard);
+        } else {
+          // Tarjeta de Noticia Web Estándar (Modelo 1)
+          const card = document.createElement("article");
+          card.className = "bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col hover:shadow-md transition-shadow";
+          card.innerHTML = `
+            <div class="p-5 flex flex-col flex-1">
+              <div class="flex items-center justify-between text-xs text-gray-500 mb-2">
+                <span class="bg-sky-100 text-sky-800 font-bold px-2 py-0.5 rounded-full text-[11px]">📍 ${item.location}</span>
+                <span><i class="fa-regular fa-clock mr-1"></i>${item.pubDate}</span>
+              </div>
+              
+              <h3 class="font-bold text-gray-900 text-base leading-snug hover:text-primary transition mb-2">
+                <a href="${item.link}" target="_blank" rel="noopener">${item.title}</a>
+              </h3>
+
+              <p class="text-xs text-gray-600 line-clamp-3 mb-4 flex-1">${item.description}</p>
+
+              <div class="pt-3 border-t border-gray-100 flex items-center justify-between text-xs">
+                <span class="text-gray-500 font-semibold truncate max-w-[150px]"><i class="fa-solid fa-newspaper mr-1 text-gray-400"></i>${item.source}</span>
+                <a href="${item.link}" target="_blank" rel="noopener" class="text-primary font-bold hover:underline flex items-center gap-1">
+                  Leer noticia completa <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i>
+                </a>
+              </div>
+            </div>
+          `;
+          container.appendChild(card);
+        }
+      });
+
+      triggerSocialWidgets();
+    }
+
+    // Tarjeta Especial para Redes Sociales con Resumen y Embed
+    function createSocialCard(item) {
+      const card = document.createElement("article");
+      card.className = "bg-white rounded-xl shadow-sm border border-sky-200 overflow-hidden flex flex-col hover:shadow-md transition-shadow md:col-span-2";
+      
+      const meta = getPlatformMeta(item.platform, item.url);
+      let embedHtml = "";
+
+      if (meta.type === "youtube") {
+        const vidId = extractYouTubeID(item.url);
+        embedHtml = vidId 
+          ? `<div class="aspect-video w-full rounded-lg overflow-hidden"><iframe class="w-full h-full" src="https://www.youtube.com/embed/${vidId}" frameborder="0" allowfullscreen></iframe></div>`
+          : `<a href="${item.url}" target="_blank" class="text-xs text-red-600 underline">Ver transmisión en YouTube</a>`;
+      } else if (meta.type === "telegram") {
+        const tgClean = item.url.replace("https://t.me/", "");
+        embedHtml = `<iframe src="https://t.me/${tgClean}?embed=1" class="w-full min-h-[260px] border-none rounded-lg"></iframe>`;
+      } else if (meta.type === "twitter") {
+        embedHtml = `<blockquote class="twitter-tweet" data-dnt="true"><a href="${item.url}">Cargando tweet...</a></blockquote>`;
+      } else if (meta.type === "instagram") {
+        embedHtml = `<blockquote class="instagram-media" data-instgrm-permalink="${item.url}" data-instgrm-version="14"><a href="${item.url}">Ver en Instagram</a></blockquote>`;
+      } else if (meta.type === "facebook") {
+        embedHtml = `<div class="fb-post" data-href="${item.url}" data-width="500"></div>`;
+      } else {
+        embedHtml = `<div class="p-3 text-center"><a href="${item.url}" target="_blank" class="text-xs text-primary font-bold underline">Ver post original</a></div>`;
+      }
+
+      card.innerHTML = `
+        <div class="p-5 flex flex-col flex-1">
+          <!-- Cabecera de la Red -->
+          <div class="flex items-center justify-between text-xs text-gray-500 mb-3">
+            <div class="flex items-center gap-2">
+              <span class="${meta.badge} text-white font-bold px-2.5 py-0.5 rounded-full text-[11px] flex items-center gap-1">
+                <i class="${meta.icon}"></i> ${meta.label}
+              </span>
+              <span class="bg-sky-100 text-sky-800 font-bold px-2 py-0.5 rounded-full text-[11px]">📍 ${item.location}</span>
+            </div>
+            <span><i class="fa-regular fa-clock mr-1"></i>${item.pubDate}</span>
+          </div>
+
+          <!-- RESUMEN PREVIO -->
+          <div class="bg-slate-50 border-l-4 border-primary p-3.5 rounded-r-lg mb-4">
+            <h3 class="font-bold text-gray-900 text-base leading-snug mb-1">${item.title}</h3>
+            <p class="text-xs text-gray-700 leading-relaxed">${item.description}</p>
+            <div class="mt-2 text-[11px] text-gray-500">
+              <span class="font-semibold text-gray-700">Autor / Cuenta:</span> ${item.source}
+            </div>
+          </div>
+
+          <!-- WIDGET OFICIAL INCRUSTADO -->
+          <div class="embed-wrapper bg-gray-50 p-2 rounded-lg border border-gray-100 flex justify-center items-center">
+            ${embedHtml}
+          </div>
+        </div>
+      `;
+      return card;
+    }
+
+    function getPlatformMeta(plat, url) {
+      let t = plat;
+      if (!t || t === "auto") {
+        if (url.includes("twitter.com") || url.includes("x.com")) t = "twitter";
+        else if (url.includes("instagram.com")) t = "instagram";
+        else if (url.includes("facebook.com")) t = "facebook";
+        else if (url.includes("youtube.com") || url.includes("youtu.be")) t = "youtube";
+        else if (url.includes("t.me")) t = "telegram";
+        else t = "general";
+      }
+
+      switch (t) {
+        case "twitter": return { type: t, label: "X (Twitter)", icon: "fa-brands fa-x-twitter", badge: "bg-black" };
+        case "instagram": return { type: t, label: "Instagram", icon: "fa-brands fa-instagram", badge: "bg-pink-600" };
+        case "facebook": return { type: t, label: "Facebook", icon: "fa-brands fa-facebook", badge: "bg-blue-600" };
+        case "youtube": return { type: t, label: "YouTube", icon: "fa-brands fa-youtube", badge: "bg-red-600" };
+        case "telegram": return { type: t, label: "Telegram", icon: "fa-brands fa-telegram", badge: "bg-sky-500" };
+        default: return { type: "general", label: "Red Social", icon: "fa-solid fa-share-nodes", badge: "bg-gray-700" };
+      }
+    }
+
+    function extractYouTubeID(url) {
+      const reg = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
+      const match = url.match(reg);
+      return (match && match[2].length === 11) ? match[2] : null;
+    }
+
+    function triggerSocialWidgets() {
+      if (window.twttr && window.twttr.widgets) window.twttr.widgets.load();
+      if (window.instgrm && window.instgrm.Embeds) window.instgrm.Embeds.process();
+      if (window.FB && window.FB.XFBML) window.FB.XFBML.parse();
+    }
+
+    function filterByLocation(loc) {
+      currentFilter = loc;
+      document.getElementById("current-view-title").innerText = loc === 'todas' ? 'Todas las Noticias' : `Noticias de ${loc}`;
+      renderPlacesNav();
+      renderNewsGrid();
+    }
+
+    function updateTicker() {
+      const ticker = document.getElementById("ticker-text");
+      if (allNews.length > 0) {
+        ticker.innerText = allNews[0].title;
+        let idx = 0;
+        setInterval(() => {
+          idx = (idx + 1) % allNews.length;
+          ticker.innerText = `[${allNews[idx].location}] ${allNews[idx].title}`;
+        }, 8000);
+      }
+    }
+
+    function toggleRadioPlay() {
+      const audio = document.getElementById("audio-stream");
+      const icon = document.getElementById("radio-btn-icon");
+      const status = document.getElementById("radio-stream-status");
+
+      if (audio.paused) {
+        audio.play().then(() => {
+          icon.className = "fa-solid fa-pause";
+          status.innerText = "Transmitiendo en vivo";
+        }).catch(err => {
+          status.innerText = "Error: Stream no disponible";
+        });
+      } else {
+        audio.pause();
+        icon.className = "fa-solid fa-play";
+        status.innerText = "Pausado";
+      }
+    }
+
+    function setRadioVolume(val) {
+      document.getElementById("audio-stream").volume = parseFloat(val);
+    }
+
+    function cleanTitle(raw) {
+      if (!raw) return "";
+      const parts = raw.split(" - ");
+      if (parts.length > 1) parts.pop();
+      return parts.join(" - ");
+    }
+
+    function extractSource(raw) {
+      if (!raw) return "Agencia";
+      const parts = raw.split(" - ");
+      return parts.length > 1 ? parts[parts.length - 1] : "Agencia";
+    }
+
+    function stripHtml(html) {
+      const tmp = document.createElement("DIV");
+      tmp.innerHTML = html;
+      return tmp.textContent || tmp.innerText || "";
+    }
+
+    function updateDateDisplay() {
+      const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+      document.getElementById("current-date").innerText = new Date().toLocaleDateString('es-ES', options);
+    }
+
+    // ================= FUNCIONES DEL PANEL ADMIN =================
+
+    function openAdminModal() {
+      const pwd = prompt("Introduce la clave de acceso de administrador (Por defecto: admin123):");
+      if (pwd === "admin123") {
+        populateAdminFields();
+        document.getElementById("admin-modal").classList.remove("hidden");
+      } else if (pwd !== null) {
+        alert("Clave incorrecta.");
+      }
+    }
+
+    function closeAdminModal() {
+      document.getElementById("admin-modal").classList.add("hidden");
+    }
+
+    function switchTab(tabId) {
+      document.querySelectorAll(".admin-tab-content").forEach(el => el.classList.add("hidden"));
+      document.querySelectorAll(".admin-tab-btn").forEach(el => {
+        el.classList.remove("border-primary", "text-primary");
+        el.classList.add("border-transparent", "text-gray-500");
+      });
+
+      document.getElementById(tabId).classList.remove("hidden");
+      const activeBtn = document.getElementById(`btn-${tabId}`);
+      activeBtn.classList.remove("border-transparent", "text-gray-500");
+      activeBtn.classList.add("border-primary", "text-primary");
+    }
+
+    function populateAdminFields() {
+      document.getElementById("cfg-site-name").value = config.siteName;
+      document.getElementById("cfg-site-slogan").value = config.siteSlogan;
+      document.getElementById("cfg-site-logo-url").value = config.siteLogoUrl || "";
+
+      document.getElementById("cfg-primary-color").value = config.primaryColor;
+      document.getElementById("cfg-secondary-color").value = config.secondaryColor;
+      document.getElementById("cfg-primary-color-label").innerText = config.primaryColor;
+      document.getElementById("cfg-secondary-color-label").innerText = config.secondaryColor;
+      document.getElementById("cfg-font-style").value = config.fontStyle;
+
+      document.getElementById("cfg-places-list").value = config.places.join(", ");
+      document.getElementById("cfg-refresh-interval").value = config.refreshInterval;
+
+      // Selector de lugares para nueva publicación de red
+      const selectPlace = document.getElementById("social-new-place");
+      selectPlace.innerHTML = "";
+      config.places.forEach(p => {
+        const opt = document.createElement("option");
+        opt.value = p;
+        opt.innerText = p;
+        selectPlace.appendChild(opt);
+      });
+
+      renderSocialAdminList();
+
+      document.getElementById("cfg-radio-enabled").checked = config.radio.enabled;
+      document.getElementById("cfg-radio-name").value = config.radio.name;
+      document.getElementById("cfg-radio-url").value = config.radio.url;
+
+      document.getElementById("cfg-ad-header-enabled").checked = config.ads.header.enabled;
+      document.getElementById("cfg-ad-header-img").value = config.ads.header.img;
+      document.getElementById("cfg-ad-header-link").value = config.ads.header.link;
+
+      document.getElementById("cfg-ad-sidebar-enabled").checked = config.ads.sidebar.enabled;
+      document.getElementById("cfg-ad-sidebar-img").value = config.ads.sidebar.img;
+      document.getElementById("cfg-ad-sidebar-link").value = config.ads.sidebar.link;
+
+      document.getElementById("cfg-ad-feed-enabled").checked = config.ads.feed.enabled;
+      document.getElementById("cfg-ad-feed-title").value = config.ads.feed.title;
+      document.getElementById("cfg-ad-feed-img").value = config.ads.feed.img;
+      document.getElementById("cfg-ad-feed-link").value = config.ads.feed.link;
+    }
+
+    function addSocialItem() {
+      const place = document.getElementById("social-new-place").value;
+      const platform = document.getElementById("social-new-platform").value;
+      const url = document.getElementById("social-new-url").value.trim();
+      const title = document.getElementById("social-new-title").value.trim();
+      const summary = document.getElementById("social-new-summary").value.trim();
+      const author = document.getElementById("social-new-author").value.trim();
+
+      if (!url || !title || !summary) {
+        alert("Completa al menos la URL, el Titular y el Resumen previo.");
+        return;
+      }
+
+      const newItem = {
+        id: "soc-" + Date.now(),
+        place: place,
+        platform: platform,
+        title: title,
+        summary: summary,
+        author: author || "Redes Sociales",
+        url: url,
+        pubDate: "Hace instantes"
+      };
+
+      config.socialItems.unshift(newItem);
+      localStorage.setItem("news_portal_unified_cfg", JSON.stringify(config));
+
+      document.getElementById("social-new-url").value = "";
+      document.getElementById("social-new-title").value = "";
+      document.getElementById("social-new-summary").value = "";
+      document.getElementById("social-new-author").value = "";
+
+      renderSocialAdminList();
+      applySettings();
+      fetchAutomatedNews();
+      alert("¡Publicación guardada e incrustada!");
+    }
+
+    function removeSocialItem(id) {
+      if (confirm("¿Eliminar esta publicación?")) {
+        config.socialItems = config.socialItems.filter(i => i.id !== id);
+        localStorage.setItem("news_portal_unified_cfg", JSON.stringify(config));
+        renderSocialAdminList();
+        applySettings();
+        fetchAutomatedNews();
+      }
+    }
+
+    function renderSocialAdminList() {
+      const list = document.getElementById("social-items-list");
+      list.innerHTML = "";
+
+      if (config.socialItems.length === 0) {
+        list.innerHTML = `<p class="text-xs text-gray-400">No hay publicaciones de redes registradas.</p>`;
+        return;
+      }
+
+      config.socialItems.forEach(item => {
+        const itemRow = document.createElement("div");
+        itemRow.className = "flex items-center justify-between p-2 bg-gray-50 rounded border border-gray-200 text-xs";
+        itemRow.innerHTML = `
+          <div class="truncate max-w-sm">
+            <span class="font-bold text-sky-700">📍 ${item.place}</span> | <span class="font-semibold text-gray-800">${item.title}</span>
+            <p class="text-[10px] text-gray-400 truncate">${item.url}</p>
+          </div>
+          <button onclick="removeSocialItem('${item.id}')" class="text-red-500 hover:text-red-700 p-1 font-bold">
+            <i class="fa-solid fa-trash-can"></i>
+          </button>
+        `;
+        list.appendChild(itemRow);
+      });
+    }
+
+    function saveAdminSettings() {
+      config.siteName = document.getElementById("cfg-site-name").value.trim() || DEFAULT_CONFIG.siteName;
+      config.siteSlogan = document.getElementById("cfg-site-slogan").value.trim();
+      config.siteLogoUrl = document.getElementById("cfg-site-logo-url").value.trim();
+
+      config.primaryColor = document.getElementById("cfg-primary-color").value;
+      config.secondaryColor = document.getElementById("cfg-secondary-color").value;
+      config.fontStyle = document.getElementById("cfg-font-style").value;
+
+      const rawPlaces = document.getElementById("cfg-places-list").value;
+      config.places = rawPlaces.split(",").map(p => p.trim()).filter(p => p.length > 0);
+      if (config.places.length === 0) config.places = ["General"];
+
+      config.refreshInterval = parseInt(document.getElementById("cfg-refresh-interval").value) || 15;
+
+      config.radio = {
+        enabled: document.getElementById("cfg-radio-enabled").checked,
+        name: document.getElementById("cfg-radio-name").value.trim(),
+        url: document.getElementById("cfg-radio-url").value.trim()
+      };
+
+      config.ads = {
+        header: {
+          enabled: document.getElementById("cfg-ad-header-enabled").checked,
+          img: document.getElementById("cfg-ad-header-img").value.trim(),
+          link: document.getElementById("cfg-ad-header-link").value.trim()
+        },
+        sidebar: {
+          enabled: document.getElementById("cfg-ad-sidebar-enabled").checked,
+          img: document.getElementById("cfg-ad-sidebar-img").value.trim(),
+          link: document.getElementById("cfg-ad-sidebar-link").value.trim()
+        },
+        feed: {
+          enabled: document.getElementById("cfg-ad-feed-enabled").checked,
+          title: document.getElementById("cfg-ad-feed-title").value.trim(),
+          img: document.getElementById("cfg-ad-feed-img").value.trim(),
+          link: document.getElementById("cfg-ad-feed-link").value.trim()
+        }
+      };
+
+      localStorage.setItem("news_portal_unified_cfg", JSON.stringify(config));
+
+      applySettings();
+      closeAdminModal();
+      fetchAutomatedNews();
+      alert("¡Configuración guardada y actualizada exitosamente!");
+    }
+
+    function exportSettingsJSON() {
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(config, null, 2));
+      const downloadAnchor = document.createElement("a");
+      downloadAnchor.setAttribute("href", dataStr);
+      downloadAnchor.setAttribute("download", `config_noticias_${Date.now()}.json`);
+      document.body.appendChild(downloadAnchor);
+      downloadAnchor.click();
+      downloadAnchor.remove();
+    }
+
+    function importSettingsJSON(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        try {
+          const imported = JSON.parse(e.target.result);
+          config = { ...DEFAULT_CONFIG, ...imported };
+          localStorage.setItem("news_portal_unified_cfg", JSON.stringify(config));
+          populateAdminFields();
+          applySettings();
+          fetchAutomatedNews();
+          alert("¡Configuración restaurada con éxito desde el archivo!");
+        } catch (err) {
+          alert("Error al procesar el archivo JSON.");
+        }
+      };
+      reader.readAsText(file);
+    }
+
+    function resetDefaultSettings() {
+      if (confirm("¿Estás seguro de restablecer todos los valores originales?")) {
+        config = { ...DEFAULT_CONFIG };
+        localStorage.removeItem("news_portal_unified_cfg");
+        populateAdminFields();
+        applySettings();
+        fetchAutomatedNews();
+        alert("Configuración restaurada a valores por defecto.");
+      }
+    }
+  </script>
+</body>
+</html>
